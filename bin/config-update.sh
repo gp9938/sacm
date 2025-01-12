@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 #
 usage() {
     cat <<EOF
@@ -58,11 +58,11 @@ fi
 
 config_repo_name=${1}
 
-if [ ${CONFIG_REPO_NAME}="." ]; then
-    CONFIG_REPO_NAME=$(basename $(realpath $(pwd)))
+if [ ${config_repo_name} = "." ]; then
+    config_repo_name=$(basename $(realpath $(pwd)))
 fi
 
-repo_dir=${CONFIG_REPO_DIR}/${CONFIG_REPO_NAME}
+repo_dir=${CONFIG_REPO_DIR}/${config_repo_name}
 if cd ${repo_dir}; then
     echo Changed dir to ${repo_dir} "("$(pwd)")"
 else
