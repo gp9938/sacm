@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 usage() {
     cat <<EOF
@@ -12,6 +12,10 @@ get_script_dir() {
     echo $(dirname $(realpath $0))
 }
 
+# script error checks will not happen if we exit on error (set -e)
+set +e
+#
+
 # check if client repo directoy exists and exit if not
 # If host repo not found
 #    clone host repo
@@ -24,20 +28,21 @@ get_script_dir() {
 # # iterate through Apps file and 
 
 SCRIPT_DIR=$(get_script_dir)
-
+BASE_DIR=$(realpath "${SCRIPT_DIR}/..")
+TP_SCRIPTS="${BASE_DIR}/thirdparty/scripts"
 
 # remote 
-REMOTE_GIT_BASE_URL="git://wanda.local/"
+REMOTE_GIT_BASE_URL="git://wanda.local"
 # need a host repo dir
-LOCAL_REPO_BASEDIR="/root/git-config-repos"
+LOCAL_REPO_BASEDIR="${HOME}/git-config-repos"
 APPS_FILE="APPS"
 APPS_LAST_PROCESSED_FILE=${APPS_FILE}"_LAST_PROCESSED"
-TMP_DIR="/tmp/${basename $0}$$"
+TMP_DIR="/tmp/$(basename $0 ".sh")${$}"
 APPS_TO_STOP_FILE="${TMP_DIR}/apps_to_stop.txt"
 APPS_TO_CLONE_UPDATE_START_FILE="${TMP_DIR}/apps_to_clone_update_start.txt"
-DIFF_IGNORED_MOVED="${SCRIPT_DIR}/diff-ignore-moved-lines.sh"
+DIFF_IGNORED_MOVED="${TP_SCRIPTS}/diff-ignore-moved-lines.sh"
 
-HOST_REPO_NAME=host-${HOSTNAME}
+HOST_REPO_NAME="host-${HOSTNAME}"
 HOST_CONFIG_REPO_DIR=${LOCAL_REPO_BASEDIR}/${HOST_REPO_NAME}
 
 if mkdir ${TMP_DIR}; then
@@ -58,7 +63,7 @@ if [ ! -d ${LOCAL_REPO_BASEDIR} ]; then
 fi
 
 if cd ${LOCAL_REPO_BASEDIR}; then
-    # good
+    echo foo # okay
 else
     echo Failed to change dir into LOCAL_REPO_BASEDIR \"${LOCAL_REPO_BASEDIR}\".  Exiting...
     exit 1
@@ -68,13 +73,17 @@ fi
 # First process the host config repo and changes
 #
 if [ ! -d ${HOST_CONFIG_REPO_DIR} ]; then
-    git clone ${REMOTE_GIT_BASE_URL}/${HOST_REPO_NAME}
+    $(git clone ${REMOTE_GIT_BASE_URL}/${HOST_REPO_NAME})
+    if [ $? -ne  0 ]; then
+	echo "git clone of repo ${HOST_REPO_NAME} FAILED. Exiting..."
+	exit 1
+    fi
 fi
 
 #
 # process APPS file into apps-to-stop file and apps-to-clone-update-start file
 #
-if cd ${HOST_CONFIG_REPO_DIR} ; then
+if cd ${HOST_CONFIG_REPO_DIR}; then
     if [ ! -f ${APPS_LAST_PROCESSED_FILE} ]; then
 	# not last processed apps file, new setup -- will process all lines in APPS file
 	touch ${APPS_TO_STOP_FILE}
@@ -90,39 +99,46 @@ else
     echo Could not change dir to HOST_CONFIG_REPO_DIR \"${HOST_CONFIG_REPO_DIR}\".  Exiting...
     exit 1
 fi
-			       
-#
-# process apps-to-stop file
-#
-apps_to_stop_file_fd=3
-exec ${apps_to_stop_file_fd} <> ${APPS_TO_STOP_FILE}
-lineNo=1
-while read -r -a line -u ${apps_to_stop_file_fd}; do
-    echo "Processing apps-to-stop-file \"${APPS_TO_STOP_FILE}\", lineNo: ${lineNo}"
-    if [ ! -z ${line[0]} ];then # local repo (i.e. app)
-	repo_name=${line[0]}
-	if [ ! -z ${line[1]} ]; then
-	    repo_version_number="$line[1]"
-	else
-	    repo_version_number=""
-	fi
-	repo_dir="${LOCAL_REPO_BASEDIR}/${repo_name}"
-	repo_url="${REMOTE_GIT_BASE_URL}/${repo_name}"
 
-	if [ -d ${repo_dir} ]; then
-	    echo "Running stop.sh for repo ${repo_name}"
-	    ($({repo_dir}/bin/stop.sh))
-	else
-	    # Cannot stop an app that has no repo present.   Skipping
-	    echo "ERROR: Repo \"${repo_name}\" not found.  Cannot stop this process. Skipping"
+if [ $(wc -l < ${APPS_TO_STOP_FILE}) -gt 0 ]; then
+    #
+    # process apps-to-stop file
+    #
+    apps_to_stop_file_fd=3
+    eval exec "${apps_top_file_fd}"'> ${APPS_TO_STOP_FILE} # set file descriptor (open file)'
+    lineNo=1
+    while read -r -a line -u ${apps_to_stop_file_fd}; do
+	echo "Processing apps-to-stop-file \"${APPS_TO_STOP_FILE}\", lineNo: ${lineNo}"
+	if [ ! -z ${line[0]} ];then # local repo (i.e. app)
+	    repo_name=${line[0]}
+	    if [ ! -z ${line[1]} ]; then
+		repo_version_number="$line[1]"
+	    else
+		repo_version_number=""
+	    fi
+	    repo_dir="${LOCAL_REPO_BASEDIR}/${repo_name}"
+	    repo_url="${REMOTE_GIT_BASE_URL}/${repo_name}"
+
+	    if [ -d ${repo_dir} ]; then
+		echo "Running stop.sh for repo ${repo_name}"
+		($({repo_dir}/bin/stop.sh))
+	    else
+		# Cannot stop an app that has no repo present.   Skipping
+		echo "ERROR: Repo \"${repo_name}\" not found.  Cannot stop this process. Skipping"
+	    fi
 	fi
-    fi
-    ((++lineNo))
-done
+	((++lineNo))
+    done
+    exec ${apps_to_stop_fd}>&- # close file descriptor
+else
+    echo "File ${APPS_TO_STOP_FILE} is empty.  No actions taken"
+fi # end // process-apps-to-stop wc -l check
 
 # process apps-to-clone-update-or-start
 apps_to_clone_update_start_fd=4
-exec ${apps_to_clone_update_start_fd} <> ${APPS_TO_CLONE_UPDATE_START_FILE}
+echo exec "${apps_to_clone_update_start_fd} ${APPS_TO_CLONE_UPDATE_START_FILE}"
+exec 4< ${APPS_TO_CLONE_UPDATE_START_FILE}
+
 lineNo=1
 while read -r -a line -u ${apps_to_clone_update_start_fd}; do
     echo "Processing apps-to-clone-update-start-file \"${APPS_TO_STOP_FILE}\", lineNo: ${lineNo}"
@@ -130,7 +146,7 @@ while read -r -a line -u ${apps_to_clone_update_start_fd}; do
 	repo_name=${line[0]}
 	echo "Processing repo ${repo_name}"
 	if [ ! -z ${line[1]} ]; then
-	    repo_version_number="$line[1]"
+	    repo_version_number="${line[1]}"
 	else
 	    repo_version_number=""
 	fi
@@ -141,10 +157,16 @@ while read -r -a line -u ${apps_to_clone_update_start_fd}; do
 	    cd ${LOCAL_REPO_BASEDIR}
 	    if [ ! -z ${repo_version_number} ]; then
 		echo "Cloning repo ${repo_name} with version ${repo_version_number}"
-		git clone ${REMOTE_GIT_BASE_URL}/${repo_name} --branch ${repo_version_number} ${repo_url}
+		git clone --branch "${repo_version_number}" ${repo_url}
+		if [ $? -ne 0 ]; then
+		    echo "git clone of ${repo_name} with branch ${repo_version_number} failed. Skipping"
+		fi
 	    else
 		echo "Cloning repo ${repo_name} (latest)"
 		git clone ${REMOTE_GIT_BASE_URL}/${repo_name} ${repo_url}
+		if [ $? -ne 0 ]; then
+		    echo "git clone of ${repo_name} failed. Skipping"
+		fi
 	    fi
 	else
 	    cd ${repo_dir}
@@ -158,9 +180,12 @@ while read -r -a line -u ${apps_to_clone_update_start_fd}; do
 		git checkout master
 	    fi
 	fi
-	echo "Running start.sh for repo ${repo_name}"
-	($({repo_dir}/bin/start.sh))
-	
+	if [ -x ${repo_dir}/bin/start.sh ]; then
+	    echo "Running start.sh for repo ${repo_name}"
+	    ${repo_dir}/bin/start.sh
+	else
+	    echo "${repo_dir}/bin/start.sh not found. Continuing."
+	fi
     fi
     ((++lineNo))
 done

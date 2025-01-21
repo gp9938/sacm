@@ -1,5 +1,9 @@
 #!/bin/bash
-
+#
+#
+#
+#
+#
 usage() {
     cat <<EOF
     $0
@@ -18,7 +22,7 @@ HOST_CONFIG_CHECKER_SCRIPT="$(get_script_dir)/client_config_host_processor.sh"
 
 while /bin/true; do
     echo "Running ${HOST_CONFIG_CHECK_SCRIPT}"
-    ($(${HOST_CONFIG_CHECKER_SCRIPT}))
+    ${HOST_CONFIG_CHECKER_SCRIPT}
 
     echo "Will sleep for ${INTERVAL}"
     sleep ${INTERVAL}
