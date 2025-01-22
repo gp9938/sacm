@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 usage() {
     cat <<EOF
@@ -62,9 +62,8 @@ if [ ! -d ${LOCAL_REPO_BASEDIR} ]; then
     fi
 fi
 
-if cd ${LOCAL_REPO_BASEDIR}; then
-    echo foo # okay
-else
+cd ${LOCAL_REPO_BASEDIR}
+if [ $? -ne 0 ]; then
     echo Failed to change dir into LOCAL_REPO_BASEDIR \"${LOCAL_REPO_BASEDIR}\".  Exiting...
     exit 1
 fi
@@ -78,6 +77,9 @@ if [ ! -d ${HOST_CONFIG_REPO_DIR} ]; then
 	echo "git clone of repo ${HOST_REPO_NAME} FAILED. Exiting..."
 	exit 1
     fi
+else
+    cd ${HOST_CONFIG_REPO_DIR}
+    git pull
 fi
 
 #
@@ -105,7 +107,7 @@ if [ $(wc -l < ${APPS_TO_STOP_FILE}) -gt 0 ]; then
     # process apps-to-stop file
     #
     apps_to_stop_file_fd=3
-    eval exec "${apps_top_file_fd}"'> ${APPS_TO_STOP_FILE} # set file descriptor (open file)'
+    eval exec "${apps_top_file_fd}"'< ${APPS_TO_STOP_FILE}' # set file descriptor (open file)
     lineNo=1
     while read -r -a line -u ${apps_to_stop_file_fd}; do
 	echo "Processing apps-to-stop-file \"${APPS_TO_STOP_FILE}\", lineNo: ${lineNo}"
@@ -134,59 +136,80 @@ else
     echo "File ${APPS_TO_STOP_FILE} is empty.  No actions taken"
 fi # end // process-apps-to-stop wc -l check
 
-# process apps-to-clone-update-or-start
-apps_to_clone_update_start_fd=4
-echo exec "${apps_to_clone_update_start_fd} ${APPS_TO_CLONE_UPDATE_START_FILE}"
-exec 4< ${APPS_TO_CLONE_UPDATE_START_FILE}
-
-lineNo=1
-while read -r -a line -u ${apps_to_clone_update_start_fd}; do
-    echo "Processing apps-to-clone-update-start-file \"${APPS_TO_STOP_FILE}\", lineNo: ${lineNo}"
-    if [ ! -z ${line[0]} ];then # line should be valid
-	repo_name=${line[0]}
-	echo "Processing repo ${repo_name}"
-	if [ ! -z ${line[1]} ]; then
-	    repo_version_number="${line[1]}"
-	else
-	    repo_version_number=""
-	fi
-	repo_dir="${LOCAL_REPO_BASEDIR}/${repo_name}"
-	repo_url="${REMOTE_GIT_BASE_URL}/${repo_name}"
-	if [ ! -d ${repo_dir} ]; then
-	    # repo needs to be cloned
-	    cd ${LOCAL_REPO_BASEDIR}
-	    if [ ! -z ${repo_version_number} ]; then
-		echo "Cloning repo ${repo_name} with version ${repo_version_number}"
-		git clone --branch "${repo_version_number}" ${repo_url}
-		if [ $? -ne 0 ]; then
-		    echo "git clone of ${repo_name} with branch ${repo_version_number} failed. Skipping"
+if [ $(wc -l < ${APPS_TO_CLONE_UPDATE_START_FILE}) -gt 0 ]; then
+    #
+    # process apps-to-clone-update-or-start
+    #
+    apps_to_clone_update_start_fd=4
+    eval exec "${apps_to_clone_update_start_fd}"'< ${APPS_TO_CLONE_UPDATE_START_FILE}'
+    
+    lineNo=1
+    while read -r -a line -u ${apps_to_clone_update_start_fd}; do
+	echo "Processing apps-to-clone-update-start-file " \
+	     "\"${APPS_TO_CLONE_UPDATE_START_FILE}\", lineNo: ${lineNo}"
+	if [ ! -z ${line[0]} ];then # line should be valid
+	    repo_name=${line[0]}
+	    echo "Processing repo ${repo_name}"
+	    if [ ! -z ${line[1]} ]; then
+		repo_version_number="${line[1]}"
+	    else
+		repo_version_number=""
+	    fi
+	    repo_dir="${LOCAL_REPO_BASEDIR}/${repo_name}"
+	    repo_url="${REMOTE_GIT_BASE_URL}/${repo_name}"
+	    if [ ! -d ${repo_dir} ]; then
+		# repo needs to be cloned
+		cd ${LOCAL_REPO_BASEDIR}
+		if [ ! -z ${repo_version_number} ]; then
+		    echo "Cloning repo ${repo_name} with version ${repo_version_number}"
+		    git clone --branch "${repo_version_number}" ${repo_url}
+		    if [ $? -ne 0 ]; then
+			echo "git clone of ${repo_name} with branch ${repo_version_number} failed. Skipping"
+		    fi
+		else
+		    echo "Cloning repo ${repo_name} (latest)"
+		    git clone ${REMOTE_GIT_BASE_URL}/${repo_name} ${repo_url}
+		    if [ $? -ne 0 ]; then
+			echo "git clone of ${repo_name} failed. Skipping"
+		    fi
 		fi
 	    else
-		echo "Cloning repo ${repo_name} (latest)"
-		git clone ${REMOTE_GIT_BASE_URL}/${repo_name} ${repo_url}
-		if [ $? -ne 0 ]; then
-		    echo "git clone of ${repo_name} failed. Skipping"
+		cd ${repo_dir}
+		# repo needs to be updated
+		git fetch --tags
+		if [ ! -z ${repo_version_number} ]; then
+		    echo "Checking out repo ${repo_name} with tag ${repo_version_number}"
+		    git checkout ${repo_version_number}
+		    git pull
+		else
+		    echo "Pulling latest revision of repo ${repo_name}"
+		    git checkout master
+		    git pull
 		fi
 	    fi
-	else
-	    cd ${repo_dir}
-	    # repo needs to be updated
-	    git fetch --tags
-	    if [ ! -z ${repo_version_number} ]; then
-		echo "Checking out repo ${repo_name} with tag ${repo_version_number}"
-		git checkout ${repo_version_number}
+	    if [ -x ${repo_dir}/bin/start.sh ]; then
+		echo "Running start.sh for repo ${repo_name}"
+		${repo_dir}/bin/start.sh
 	    else
-		echo "Pulling latest revision of repo ${repo_name}"
-		git checkout master
+		echo "${repo_dir}/bin/start.sh not found. Continuing."
 	    fi
 	fi
-	if [ -x ${repo_dir}/bin/start.sh ]; then
-	    echo "Running start.sh for repo ${repo_name}"
-	    ${repo_dir}/bin/start.sh
-	else
-	    echo "${repo_dir}/bin/start.sh not found. Continuing."
-	fi
-    fi
-    ((++lineNo))
-done
+	((++lineNo))
+    done
+    exec ${apps_to_cone_update_start_fd}>&- # close file descriptor
+else
+     echo "File ${APPS_TO_CLONE_UPDATE_START_FILE} is empty.  No actions taken"
+fi # end process apps-to-clone-update-or-start
 
+#
+#  Success 
+#
+# copy APPS file to APPS_LAST_PROCESSED
+cd ${HOST_CONFIG_REPO_DIR}
+cp -p ${APPS_FILE} ${APPS_LAST_PROCESSED_FILE}
+
+# remove TMP_DIR
+if [ ! -z ${TMP_DIR} ]; then
+    echo "Removing TMP_DIR ${TMP_DIR}"
+    rm -rf ${TMP_DIR}
+fi

@@ -2,9 +2,8 @@
 #
 usage() {
     cat <<EOF
-    $0	<config-repo-name> <comment> [new-config-version]
+    $0	<comment> [new-config-version]
 
-    config-repo-name      Supply "." to indicate the parent directory is the name of the config repo.
     comment               The comment (in quotes) to be included in the commit 
     new-version-number    Optionally provide the new version number for the config.   Otherwise,
                           the version number in ${VERSION_FILE} will be incremented by 0.01.  If
@@ -51,28 +50,28 @@ else
     fi
 fi
 
-if [ $# -lt 2 ]; then
+if [ $# -lt 1 ]; then
    usage
    exit -1
 fi
 
-config_repo_name=${1}
+# config_repo_name=${1}
 
-if [ ${config_repo_name} = "." ]; then
-    config_repo_name=$(basename $(realpath $(pwd)))
-fi
+# if [ ${config_repo_name} = "." ]; then
+#     config_repo_name=$(basename $(realpath $(pwd)))
+# fi
 
-repo_dir=${CONFIG_REPO_DIR}/${config_repo_name}
-if cd ${repo_dir}; then
-    echo Changed dir to ${repo_dir} "("$(pwd)")"
-else
-    echo Could not change dir to git config repo ${repo_dir}.  Exiting....
-    exit -1
-fi
+# repo_dir=${CONFIG_REPO_DIR}/${config_repo_name}
+# if cd ${repo_dir}; then
+#     echo Changed dir to ${repo_dir} "("$(pwd)")"
+# else
+#     echo Could not change dir to git config repo ${repo_dir}.  Exiting....
+#     exit -1
+# fi
 
-comment=${2}
-if [ $# -gt 2 ]; then
-    new_config_version=${3}
+comment=${1}
+if [ $# -gt 1 ]; then
+    new_config_version=${2}
 else
     if [ -f ${VERSION_FILE} ]; then
 	config_version=$(cat ${VERSION_FILE})
@@ -97,6 +96,8 @@ fi
 git add .
 git commit -m "${comment}"
 git tag -a "${new_config_version}" -m "${comment}"
+git push
+
 
 
 
