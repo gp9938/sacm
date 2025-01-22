@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 usage() {
     cat <<EOF
@@ -168,7 +168,7 @@ if [ $(wc -l < ${APPS_TO_CLONE_UPDATE_START_FILE}) -gt 0 ]; then
 		    fi
 		else
 		    echo "Cloning repo ${repo_name} (latest)"
-		    git clone ${REMOTE_GIT_BASE_URL}/${repo_name} ${repo_url}
+		    git clone ${repo_url}
 		    if [ $? -ne 0 ]; then
 			echo "git clone of ${repo_name} failed. Skipping"
 		    fi
