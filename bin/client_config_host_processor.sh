@@ -12,6 +12,111 @@ get_script_dir() {
     echo $(dirname $(realpath $0))
 }
 
+process_apps_to_stop() {
+    if [ $(wc -l < ${APPS_TO_STOP_FILE}) -gt 0 ]; then
+	#
+	# process apps-to-stop file
+	#
+	apps_to_stop_file_fd=3
+	eval exec "${apps_top_file_fd}"'< ${APPS_TO_STOP_FILE}' # set file descriptor (open file)
+	lineNo=1
+	while read -r -a line -u ${apps_to_stop_file_fd}; do
+	    echo "Processing apps-to-stop-file \"${APPS_TO_STOP_FILE}\", lineNo: ${lineNo}"
+	    if [ ! -z ${line[0]} ];then # local repo (i.e. app)
+		repo_name=${line[0]}
+		if [ ! -z ${line[1]} ]; then
+		    repo_version_number="$line[1]"
+		else
+		    repo_version_number=""
+		fi
+		repo_dir="${LOCAL_REPO_BASEDIR}/${repo_name}"
+		repo_url="${REMOTE_GIT_BASE_URL}/${repo_name}"
+		
+		if [ -d ${repo_dir} ]; then
+		    echo "Running stop.sh for repo ${repo_name}"
+		    ($({repo_dir}/bin/stop.sh))
+		else
+		    # Cannot stop an app that has no repo present.   Skipping
+		    echo "ERROR: Repo \"${repo_name}\" not found.  Cannot stop this process. Skipping"
+		fi
+	    fi
+	    ((++lineNo))
+	done
+	exec ${apps_to_stop_fd}>&- # close file descriptor
+    else
+	echo "File ${APPS_TO_STOP_FILE} is empty.  No actions taken"
+    fi # end // process-apps-to-stop wc -l check   
+} # end process_apps_to_stop
+
+
+process_apps_to_clone_update_start() {
+    if [ $(wc -l < ${APPS_TO_CLONE_UPDATE_START_FILE}) -gt 0 ]; then
+	#
+	# process apps-to-clone-update-or-start
+	#
+	apps_to_clone_update_start_fd=4
+	eval exec "${apps_to_clone_update_start_fd}"'< ${APPS_TO_CLONE_UPDATE_START_FILE}'
+	
+	lineNo=1
+	while read -r -a line -u ${apps_to_clone_update_start_fd}; do
+	    echo "Processing apps-to-clone-update-start-file " \
+		 "\"${APPS_TO_CLONE_UPDATE_START_FILE}\", lineNo: ${lineNo}"
+	    if [ ! -z ${line[0]} ];then # line should be valid
+		repo_name=${line[0]}
+		echo "Processing repo ${repo_name}"
+		if [ ! -z ${line[1]} ]; then
+		    repo_version_number="${line[1]}"
+		else
+		    repo_version_number=""
+		fi
+		repo_dir="${LOCAL_REPO_BASEDIR}/${repo_name}"
+		repo_url="${REMOTE_GIT_BASE_URL}/${repo_name}"
+		if [ ! -d ${repo_dir} ]; then
+		    # repo needs to be cloned
+		    cd ${LOCAL_REPO_BASEDIR}
+		    if [ ! -z ${repo_version_number} ]; then
+			echo "Cloning repo ${repo_name} with version ${repo_version_number}"
+			git clone --branch "${repo_version_number}" ${repo_url}
+			if [ $? -ne 0 ]; then
+			    echo "git clone of ${repo_name} with branch ${repo_version_number} failed. Skipping"
+			fi
+		    else
+			echo "Cloning repo ${repo_name} (latest)"
+			git clone ${repo_url}
+			if [ $? -ne 0 ]; then
+			    echo "git clone of ${repo_name} failed. Skipping"
+			fi
+		    fi
+		else
+		    cd ${repo_dir}
+		    # repo needs to be updated
+		    git fetch --tags
+		    if [ ! -z ${repo_version_number} ]; then
+			echo "Checking out repo ${repo_name} with tag ${repo_version_number}"
+			git checkout ${repo_version_number}
+			git pull
+		    else
+			echo "Pulling latest revision of repo ${repo_name}"
+			git checkout master
+			git pull
+		    fi
+		fi
+		if [ -x ${repo_dir}/bin/start.sh ]; then
+		    echo "Running start.sh for repo ${repo_name}"
+		    ${repo_dir}/bin/start.sh
+		else
+		    echo "${repo_dir}/bin/start.sh not found. Continuing."
+		fi
+	    fi
+	    ((++lineNo))
+	done
+	exec ${apps_to_cone_update_start_fd}>&- # close file descriptor
+    else
+	echo "File ${APPS_TO_CLONE_UPDATE_START_FILE} is empty.  No actions taken"
+    fi # end process apps-to-clone-update-or-start
+}
+
+
 # script error checks will not happen if we exit on error (set -e)
 set +e
 #
@@ -69,8 +174,8 @@ if [ $? -ne 0 ]; then
 fi
 
 #
-# First process the host config repo and changes
-#
+# First process the host config repo and changes 
+# 
 if [ ! -d ${HOST_CONFIG_REPO_DIR} ]; then
     $(git clone ${REMOTE_GIT_BASE_URL}/${HOST_REPO_NAME})
     if [ $? -ne  0 ]; then
@@ -102,104 +207,11 @@ else
     exit 1
 fi
 
-if [ $(wc -l < ${APPS_TO_STOP_FILE}) -gt 0 ]; then
-    #
-    # process apps-to-stop file
-    #
-    apps_to_stop_file_fd=3
-    eval exec "${apps_top_file_fd}"'< ${APPS_TO_STOP_FILE}' # set file descriptor (open file)
-    lineNo=1
-    while read -r -a line -u ${apps_to_stop_file_fd}; do
-	echo "Processing apps-to-stop-file \"${APPS_TO_STOP_FILE}\", lineNo: ${lineNo}"
-	if [ ! -z ${line[0]} ];then # local repo (i.e. app)
-	    repo_name=${line[0]}
-	    if [ ! -z ${line[1]} ]; then
-		repo_version_number="$line[1]"
-	    else
-		repo_version_number=""
-	    fi
-	    repo_dir="${LOCAL_REPO_BASEDIR}/${repo_name}"
-	    repo_url="${REMOTE_GIT_BASE_URL}/${repo_name}"
+process_apps_to_stop()
 
-	    if [ -d ${repo_dir} ]; then
-		echo "Running stop.sh for repo ${repo_name}"
-		($({repo_dir}/bin/stop.sh))
-	    else
-		# Cannot stop an app that has no repo present.   Skipping
-		echo "ERROR: Repo \"${repo_name}\" not found.  Cannot stop this process. Skipping"
-	    fi
-	fi
-	((++lineNo))
-    done
-    exec ${apps_to_stop_fd}>&- # close file descriptor
-else
-    echo "File ${APPS_TO_STOP_FILE} is empty.  No actions taken"
-fi # end // process-apps-to-stop wc -l check
+process_apps_to_clone_update_start()
 
-if [ $(wc -l < ${APPS_TO_CLONE_UPDATE_START_FILE}) -gt 0 ]; then
-    #
-    # process apps-to-clone-update-or-start
-    #
-    apps_to_clone_update_start_fd=4
-    eval exec "${apps_to_clone_update_start_fd}"'< ${APPS_TO_CLONE_UPDATE_START_FILE}'
-    
-    lineNo=1
-    while read -r -a line -u ${apps_to_clone_update_start_fd}; do
-	echo "Processing apps-to-clone-update-start-file " \
-	     "\"${APPS_TO_CLONE_UPDATE_START_FILE}\", lineNo: ${lineNo}"
-	if [ ! -z ${line[0]} ];then # line should be valid
-	    repo_name=${line[0]}
-	    echo "Processing repo ${repo_name}"
-	    if [ ! -z ${line[1]} ]; then
-		repo_version_number="${line[1]}"
-	    else
-		repo_version_number=""
-	    fi
-	    repo_dir="${LOCAL_REPO_BASEDIR}/${repo_name}"
-	    repo_url="${REMOTE_GIT_BASE_URL}/${repo_name}"
-	    if [ ! -d ${repo_dir} ]; then
-		# repo needs to be cloned
-		cd ${LOCAL_REPO_BASEDIR}
-		if [ ! -z ${repo_version_number} ]; then
-		    echo "Cloning repo ${repo_name} with version ${repo_version_number}"
-		    git clone --branch "${repo_version_number}" ${repo_url}
-		    if [ $? -ne 0 ]; then
-			echo "git clone of ${repo_name} with branch ${repo_version_number} failed. Skipping"
-		    fi
-		else
-		    echo "Cloning repo ${repo_name} (latest)"
-		    git clone ${repo_url}
-		    if [ $? -ne 0 ]; then
-			echo "git clone of ${repo_name} failed. Skipping"
-		    fi
-		fi
-	    else
-		cd ${repo_dir}
-		# repo needs to be updated
-		git fetch --tags
-		if [ ! -z ${repo_version_number} ]; then
-		    echo "Checking out repo ${repo_name} with tag ${repo_version_number}"
-		    git checkout ${repo_version_number}
-		    git pull
-		else
-		    echo "Pulling latest revision of repo ${repo_name}"
-		    git checkout master
-		    git pull
-		fi
-	    fi
-	    if [ -x ${repo_dir}/bin/start.sh ]; then
-		echo "Running start.sh for repo ${repo_name}"
-		${repo_dir}/bin/start.sh
-	    else
-		echo "${repo_dir}/bin/start.sh not found. Continuing."
-	    fi
-	fi
-	((++lineNo))
-    done
-    exec ${apps_to_cone_update_start_fd}>&- # close file descriptor
-else
-     echo "File ${APPS_TO_CLONE_UPDATE_START_FILE} is empty.  No actions taken"
-fi # end process apps-to-clone-update-or-start
+validate_unchanged_apps()
 
 #
 #  Success 
