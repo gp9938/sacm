@@ -116,21 +116,13 @@ process_apps_to_clone_update_start() {
     fi # end process apps-to-clone-update-or-start
 }
 
+##########################################################################################
+# main                                                                                   #
+##########################################################################################
 
 # script error checks will not happen if we exit on error (set -e)
 set +e
 #
-
-# check if client repo directoy exists and exit if not
-# If host repo not found
-#    clone host repo
-# else (host repo found)
-#    run a diff to find apps that have been removed and save that list
-#    run a diff to find apps that have changed
-#    update the repo
-#    shutdown the list of apps that have been removed
-# fi
-# # iterate through Apps file and 
 
 SCRIPT_DIR=$(get_script_dir)
 BASE_DIR=$(realpath "${SCRIPT_DIR}/..")
