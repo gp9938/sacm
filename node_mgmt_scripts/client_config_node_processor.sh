@@ -8,26 +8,25 @@ usage() {
 EOF
 }
 
-log() {
-    date=$(date +%Y%m%d-%H:%M:%S)
-    echo "${date}: $@"
+
+# Return the directory from which a script was run.   If the script
+# is reached via symlink,this script will return the directory of the
+# symlink because it uses "realpath -s". Function get_real_script_dir
+# drops the -s and will therefore return the directory of the
+# script file rather than the symlink.
+bootstrap_get_script_dir() {
+    echo $(dirname $(realpath -s $0))
 }
 
-get_script_dir() {
-    echo $(dirname $(realpath $0))
-}
-
-ENUM_SH="$(get_script_dir)/enum.sh"
-if [ -f ${ENUM_SH} ]; then
-    . ${ENUM_SH}
+COMMON_SH="$(bootstrap_get_script_dir)/../shared_scripts/common.sh"
+if [ -f ${COMMON_SH} ]; then
+    . ${COMMON_SH}
 else
-    echo "Cannot load enum.sh.  Exiting..." >&2
+    echo "Cannot load common.sh. Exiting..." >&2
     exit 1
 fi
 
-
 process_apps_to_stop() {
-    
     if [ $(wc -l < ${APPS_DEL_FILE}) -gt 0 ]; then
 	#
 	# process app_del_file
@@ -291,7 +290,7 @@ validate_app() {
 	fi
     fi
     return 1 
-}
+} 
 
 ##########################################################################################
 # main                                                                                   #
@@ -303,21 +302,22 @@ set +e
 
 SCRIPT_DIR=$(get_script_dir)
 BASE_DIR=$(realpath "${SCRIPT_DIR}/..")
+SHARED_SCRIPTS_DIR="${BASE_DIR}/shared_scripts"
 TP_SCRIPTS="${BASE_DIR}/thirdparty/scripts"
 
 # remote 
 REMOTE_GIT_BASE_URL="git://wanda.local"
-# need a host repo dir
+# need a node repo dir
 GIT_STATUS_BRANCH_BEHIND="Your branch is behind"
 GIT_STATUS_BRANCH_UP_TO_DATE="Your branch is up to date"
 LOCAL_REPO_BASEDIR="${HOME}/git-config-repos"
 APPS_FILE="APPS"
 APPS_LAST_PROCESSED_FILE=${APPS_FILE}"_LAST_PROCESSED"
 TMP_DIR="/tmp/$(basename $0 ".sh")${$}"
-HOST_REPO_NAME="host-${HOSTNAME}"
-HOST_CONFIG_REPO_DIR=${LOCAL_REPO_BASEDIR}/${HOST_REPO_NAME}
+NODE_REPO_NAME="node-${HOSTNAME}"
+NODE_CONFIG_REPO_DIR=${LOCAL_REPO_BASEDIR}/${NODE_REPO_NAME}
 DIFF_IGNORED_MOVED="${TP_SCRIPTS}/diff-ignore-moved-lines.sh"
-DIFF_SORTER="${SCRIPT_DIR}/diff_sorter.sh"
+DIFF_SORTER="${SHARED_SCRIPTS_DIR}/diff_sorter.sh"
 DIFF_SORTER_OUTFILES_PREFIX="${TMP_DIR}/out"
 APPS_DEL_FILE=${DIFF_SORTER_OUTFILES_PREFIX}"_del.txt"
 APPS_MOV_FILE=${DIFF_SORTER_OUTFILES_PREFIX}"_mov.txt"
@@ -351,51 +351,30 @@ fi
 #
 # First process the host config repo and changes 
 # 
-if [ ! -d ${HOST_CONFIG_REPO_DIR} ]; then
-    $(git clone ${REMOTE_GIT_BASE_URL}/${HOST_REPO_NAME})
+if [ ! -d ${NODE_CONFIG_REPO_DIR} ]; then
+    $(git clone ${REMOTE_GIT_BASE_URL}/${NODE_REPO_NAME})
     if [ $? -ne  0 ]; then
-	echo "git clone of repo ${HOST_REPO_NAME} FAILED. Exiting..."
+	echo "git clone of repo ${NODE_REPO_NAME} FAILED. Exiting..."
 	exit 1
     fi
 else
-    cd ${HOST_CONFIG_REPO_DIR}
+    cd ${NODE_CONFIG_REPO_DIR}
     git pull
 fi
 
 #
 # process APPS file into apps-to-stop file and apps-to-clone-update-start file
 #
-if cd ${HOST_CONFIG_REPO_DIR}; then
+if cd ${NODE_CONFIG_REPO_DIR}; then
     # APPLS_LAST_PROCESSED_FILE may not exist -- diff_sort handles this situation
     # and will consider an empty file instead.
     ${DIFF_SORTER} --outfiles-prefix ${DIFF_SORTER_OUTFILES_PREFIX} \
 		   --ln-del none --ln-width 0 \
 		   ${APPS_LAST_PROCESSED_FILE} ${APPS_FILE}
 else
-    echo "Could not change dir to HOST_CONFIG_REPO_DIR \"${HOST_CONFIG_REPO_DIR}\".  Exiting..."
+    echo "Could not change dir to NODE_CONFIG_REPO_DIR \"${NODE_CONFIG_REPO_DIR}\".  Exiting..."
     exit 1
 fi
-
- 
-# #
-# # process APPS file into apps-to-stop file and apps-to-clone-update-start file
-# #
-# if cd ${HOST_CONFIG_REPO_DIR}; then
-#     if [ ! -f ${APPS_LAST_PROCESSED_FILE} ]; then
-# 	# not last processed apps file, new setup -- will process all lines in APPS file
-# 	touch ${APPS_TO_STOP_FILE}
-# 	cp ${APPS_FILE} ${APPS_TO_CLONE_UPDATE_START_FILE}
-#     else
-# 	${DIFF_SORTER} -f ${TMP_DIR}
-# 	diff -u ${APPS_LAST_PROCESSED_FILE} ${APPS_FILE} | ${DIFF_IGNORED_MOVED} \
-# 	    | grep '^< ' | sed -e 's/^< //' > ${APPS_TO_STOP_FILE}	
-# 	diff -u ${APPS_LAST_PROCESSED_FILE} ${APPS_FILE} | ${DIFF_IGNORED_MOVED} \
-# 	    | grep '^< ' | sed -e 's/^> //' > ${APPS_TO_CLONE_UPDATE_START_FILE}
-#     fi
-# else
-#     echo Could not change dir to HOST_CONFIG_REPO_DIR \"${HOST_CONFIG_REPO_DIR}\".  Exiting...
-#     exit 1
-# fi
 
 process_apps_to_stop
 
@@ -407,7 +386,7 @@ process_apps_to_validate
 #  Success 
 #
 # copy APPS file to APPS_LAST_PROCESSED
-cd ${HOST_CONFIG_REPO_DIR}
+cd ${NODE_CONFIG_REPO_DIR}
 cp -p ${APPS_FILE} ${APPS_LAST_PROCESSED_FILE}
 
 # remove TMP_DIR

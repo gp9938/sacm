@@ -2,10 +2,11 @@
 #
 usage() {
     cat <<EOF
-    $0 [-c|--crs-check <type>] \\
+    $0 [-s|--scripts-check <type>] \\
            <config-update-comment> [new-config-version]
 
-    Run this command from within the config repo (e.g. \$HOME/localgit/unbound-pi5)
+    Run this command from within the node or app config repo (e.g. \$HOME/localgit/app-unbound-pi5 or
+    \$HOME/localgit/node-pi5)
 
     OPTIONS
     <config-update-comment>  The comment (in quotes) to be included in the commit 
@@ -13,10 +14,10 @@ usage() {
                              the version number in ${CONFIG_VERSION_FILE} will be incremented by 0.01.  If
 			     ${CONFIG_VERSION_FILE} does not exist or is empty, the version number
 			     of 1.0 will be applied.
-    -c|--crs-check <type>
-			     Common repo scripts check will, depending on the type provided, 
-			     will compare the version of the config repo's current copy of the 
-			     common repo scripts to the latest version.
+    -s|--scripts-check <type>
+			     The scripts-check will, depending on the type provided, 
+			     will compare the version of the app or node repo's current copy version
+			     of the script dirs to the version of the sources.
 
 	       		     <type> can be "update" (default), "check", "prompt", or "skip"
 			     type "update" will trigger an update to the latest version
@@ -52,43 +53,45 @@ increment_version_number() {
 
 
 
-perform_crs_check() {
+perform_script_dir_check() {
     local type=${1}
-
+    local script_dir_name=${2}
     local update="n"
+
+    local src_script_dir="${BASE_DIR}/${script_dir_name}"
     
     if [ ${type} = "skip" ]; then
 	return 0
     fi
 
-    if [ ! -d ${CRS_SRC_DIR} ]; then
-	>2& echo "Common repo script directory \"${CRS_SRC_DIR}\" not found.  Cannot perform crs " \
-		 "check."
+    if [ ! -d ${src_script_dir} ]; then
+	>2& echo "Script directory \"${src_script_dir}\" not found.  Cannot perform check. "
 	return 1
     fi
 
-    if [ ! -d ${CRS_DIR} ]; then
-	echo "Repo does not have a copy of the common repo scripts directory.  Will create a copy."
-	echo "Will copy from \"${CRS_SRC_DIR}\" to \".\""
-	if rsync -par ${CRS_SRC_DIR} .; then
-	    echo "Common repo scripts directory copy created."
+    if [ ! -d ${script_dir_name} ]; then
+	echo "Repo does not have a copy of the \"${src_script_dir}\" scripts directory.  Will create a copy."
+	echo "Will copy from \"${src_script_dir}\" to \".\""
+	if rsync -par ${src_script_dir} .; then
+	    echo "Script directory copy \"${src_script_dir}\" created."
 	    return 0
 	else
-	    echo "Error creating common repo script directory copy."
+	    echo "Error creating script directory copy of \"${src_script_dir}\""
 	    return 1
 	fi
     else
-        CRS_SRC_VERSION=$(cat ${CRS_SRC_DIR}/${CRS_VERSION_FILE})
-	CRS_VERSION=$(cat ${CRS_DIR}/${CRS_VERSION_FILE})
-	echo CRS_SRC_VERSION  ${CRS_SRC_VERSION}
-	echo CRS_VERSION ${CRS_VERSION}
-	if [[ ${CRS_SRC_VERSION} > ${CRS_VERSION} ]]; then
-	    echo "Common repo scripts src version ${CRS_SRC_VERSION} is greater than" \
-		 "that of the copy found in this repo (version ${CRS_VERSION})."
+	pwd
+        local src_script_dir_version=$(cat ${src_script_dir}/${VERSION_FILE})
+	local repo_script_dir_version=$(cat ./${script_dir_name}/${VERSION_FILE})
+	echo "src_script_dir_version is ${src_script_dir_version}"
+	echo "repo_script_dir_version is ${repo_script_dir_version}"
+	if [[ ${src_script_dir_version} > ${repo_script_dir_version} ]]; then
+	    echo "Src script dir (${script_dir_name} version  ${src_script_dir_version} is greater than" \
+		 "that of the copy found in this repo (version ${repo_script_dir_version})."
 	    
 	    case ${type} in
 		check)
-		    echo "Provide --crs-check-type type \"update\" to update"
+		    echo "Provide --scripts-check type \"update\" to update"
 		    ;;
 		update)
 		    echo " Will update."
@@ -98,7 +101,7 @@ perform_crs_check() {
 		    local response="u"
 		    local responseRegEx="^[yn]$"
 		    while [[ ! "${response}" =~ ${responseRegEx} ]]; do
-			echo -n "Update copy of common repo scripts? (y/n): "
+			echo -n "Update copy of ${script_dir_name}? (y/n): "
 			read response
 		    done
 		    if [ ${response} = "y" ]; then
@@ -111,8 +114,8 @@ perform_crs_check() {
 	    esac
 
 	    if [ ${update} = "y" ]; then
-		cp -p ${CRS_DIR}/${CRS_VERSION_FILE} ${CRS_DIR}/${CRS_PRIOR_VERSION_FILE} 
-		if rsync -par ${CRS_SRC_DIR} .; then
+		cp -p ./${script_dir_name}/${VERSION_FILE} ./${script_dir_name}/${PRIOR_VERSION_FILE} 
+		if rsync -par ${src_script_dir} .; then
 		    echo "Update complete"
 		else
 		    echo "Update failed"
@@ -123,16 +126,42 @@ perform_crs_check() {
     
 }
 
+readonly NODE_REPO_PREFIX="node-"
+readonly APP_REPO_PREFIX="app-"
+readonly REPO_TYPE_APP="app"
+readonly REPO_TYPE_NODE="node"
 REPO_DIR=$(git rev-parse --show-toplevel)
+REPO_NAME=$(basename ${REPO_DIR})
 BASE_DIR="$(realpath $(get_script_dir)/..)"
+
+APP_REPO_SCRIPT_DIRS="app_repo_scripts shared_scripts"
+NODE_REPO_SCRIPT_DIRS="node_mgmt_scripts shared_scripts"
+	
 CRS_SRC_DIR="${BASE_DIR}/common_repo_scripts"
 CRS_DIR="common_repo_scripts"
 CRS_VERSION_FILE="VERSION"
 CRS_PRIOR_VERSION_FILE="PRIOR_VERSION"
 CONFIG_VERSION_FILE="CONFIG_VERSION"
 CONFIG_PRIOR_VERSION_FILE="CONFIG_PRIOR_VERSION"
+VERSION_FILE="VERSION"
+PRIOR_VERSION_FILE="PRIOR_VERSION"
+
+case ${REPO_NAME} in
+    ${APP_REPO_PREFIX}*)
+ 	REPO_TYPE="app"
+	;;
+    ${NODE_REPO_PREFIX}*)
+	REPO_TYPE="node"
+	;;
+    *)
+	echo "Unknown prefix for repo ${REPO_NAME}.  Exiting..." >&2
+	exit 1
+	;;
+esac
 
 cd ${REPO_DIR}
+
+
 #################
 # Source Script CFG file
 SCRIPT_CFG_FILE="${BASE_DIR}/cfg/$(basename ${0} .sh).cfg"
@@ -150,19 +179,6 @@ else
 	    "Exiting."
 	exit 1
     fi
-    # if [ -z ${CRS_LOCAL_REPO} ]; then
-    # 	>&2 echo "Script cfg file, \"${SCRIPT_CFG_FILE}\", did not contain a" \
-    # 	    "declaration for CRS_REPO, the separate source repo" \
-    # 	    "for the scripts included with the CONFIG_REPO distribution. Exiting."
-    # 	exit 1
-    # fi
-    # if [ -z ${CRS_GITHUB} ]; then
-    # 	>&2 echo "Script cfg file, \"${SCRIPT_CFG_FILE}\", did not contain a" \
-    # 	    "declaration for CRS_GITHUB, the separate repo" \
-    # 	    "for the common scripts included with the CONFIG_REPO distribution. "\
-    # 	    "Exiting."
-    # 	exit 1
-    # fi
 fi
 
 if [ $# -lt 1 ]; then
@@ -183,13 +199,16 @@ fi
 #     echo Could not change dir to git config repo ${repo_dir}.  Exiting....
 #     exit -1
 # fi
-crs_check_type="update"
+scripts_check_type="update"
 while [[ $# -gt 0 ]]; do
     case $1 in
-	-c|--crs-check)
-	    crs_check_type=$2
+	-c|--scripts-check)
+	    scripts_check_type=$2
 	    ;;
-	
+	-h|--h*)
+	    usage
+	    exit 1
+	    ;;
 	*)
 	    POSITIONAL_ARGS+=("$1") # save positional arg
 	    shift # past argument
@@ -211,7 +230,18 @@ else
     new_config_version=$(increment_version_number ${config_version})
 fi
 
-perform_crs_check ${crs_check_type}
+case ${REPO_TYPE} in
+    ${REPO_TYPE_APP})
+	for script_dir in ${APP_REPO_SCRIPT_DIRS}; do 
+	    perform_script_dir_check ${scripts_check_type} ${script_dir}
+	done
+	;;
+    ${REPO_TYPE_NODE})
+	for script_dir in ${NODE_REPO_SCRIPT_DIRS}; do 
+	    perform_script_dir_check ${scripts_check_type} ${script_dir}
+	done
+	;;
+esac	
 
 if [ -f ${CONFIG_VERSION_FILE} ]; then
     mv ${CONFIG_VERSION_FILE} ${CONFIG_PRIOR_VERSION_FILE}

@@ -2,11 +2,11 @@
 #
 # get the script ignoring symlinks
 # 
-_get_real_script_dir(){
+bootstrap__get_real_script_dir(){
     echo $(dirname $(realpath $0))
 }
 
-. "$(_get_real_script_dir)/common.sh"
+. "$(bootstrap__get_real_script_dir)/../shared_scripts/common.sh"
 
 exit_if_not_root
 

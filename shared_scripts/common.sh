@@ -1,6 +1,13 @@
 #!/bin/sh
 export API_VERSION="1.0"
 
+
+#
+# constants (consts)
+#
+readonly REGEX_INT='^[0-9]+$'
+readonly DEFAULT_LOG_TARGET=1 # file descritor 1
+
 # Public
 #
 # Return the directory from which a script was run.   If the script
@@ -28,6 +35,32 @@ get_base_dir() {
 
 get_cfg_dir() {
     echo "$(get_base_dir)/cfg"
+}
+
+log_info() {
+    log INFO $@
+}
+
+log_warn() {
+    log WARN $@
+}
+
+log_error() {
+    log ERROR $@
+}
+
+log() {
+    local log_target=${LOG_TARGET:-${DEFAULT_LOG_TARGET}}
+    
+    local log_line="$(date +%Y%m%d-%H:%M:%S) $@"
+    
+    if [[ ${log_target} =~ ${REGEX_INT} ]]; then
+	# is a file descriptor
+	echo "${log_line}" >&${log_target}
+    else
+	# is a file name
+	echo "${log_line}" > ${log_target}
+    fi
 }
 
 docker_get_container_id_by_name() {
@@ -177,3 +210,12 @@ generic_load_init_cfg() {
 
     return 0
 }
+
+
+ENUM_SH="$(get_real_script_dir)/../shared_scripts/enum.sh"
+if [ -f ${ENUM_SH} ]; then
+    . ${ENUM_SH}
+else
+    echo "common.sh cannot load ${ENUM_SH}.  Exiting..." >&2
+    exit 1
+fi
