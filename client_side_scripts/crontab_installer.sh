@@ -9,7 +9,7 @@ bootstrap_get_script_dir() {
     echo $(dirname $(realpath -s $0))
 }
 
-COMMON_SH="$(bootstrap_get_script_dir)/../shared_scripts/common.sh"
+COMMON_SH="$(bootstrap_get_script_dir)/shared_scripts/common.sh"
 if [ -f ${COMMON_SH} ]; then
     . ${COMMON_SH}
 else
@@ -20,12 +20,10 @@ fi
 INSTALL_SCRIPT_NAME="install_cron_entry.sh"
 UNINSTALL_SCRIPT_NAME="uninstall_cron_entry.sh"
 
-
-
 TMP_CRONTAB="/tmp/crontab_$$"
 TMP_CRONTAB_2="${TMP_CRONTAB}_2"
-COMMENT="# automatically added for client_config_node_daemon -- do not modify line"
-DAEMON_SCRIPT="$(get_script_dir)/client_config_node_daemon.sh"
+COMMENT="# automatically added for sacm client_daemon -- do not modify line"
+DAEMON_SCRIPT="$(get_script_dir)/client_daemon.sh"
 CRONTAB_LINE="@reboot ${DAEMON_SCRIPT} ${COMMENT}"
 
 CRONCHECK_REGEX="${COMMENT}"'$'
@@ -33,7 +31,7 @@ crontab -l 2>/dev/null > ${TMP_CRONTAB}
 
 if [ $(basename $0) = ${INSTALL_SCRIPT_NAME} ]; then
     if grep -Eq "${CRONCHECK_REGEX}" ${TMP_CRONTAB}; then
-	echo "Found existing cron entry for client_config_node_daemon in crontab. Will not add." >&2
+	echo "Found existing cron entry for sacm client_daemon in crontab. Will not add." >&2
     else
 	echo ${CRONTAB_LINE} >> ${TMP_CRONTAB}
 	crontab ${TMP_CRONTAB}
@@ -43,7 +41,7 @@ elif [ $(basename $0) = ${UNINSTALL_SCRIPT_NAME} ]; then
 	grep -Ev "${CRONCHECK_REGEX}" ${TMP_CRONTAB} > ${TMP_CRONTAB_2}
 	crontab ${TMP_CRONTAB_2}
     else
-	echo "Cron entry for client_config_node_daemon not found in crontab.  Cannot uninstall"
+	echo "Cron entry for sacm client_daemon not found in crontab.  Cannot uninstall"
 	echo ${CRONTAB_LINE} >> ${TMP_CRONTAB}
 	crontab ${TMP_CRONTAB}
     fi
