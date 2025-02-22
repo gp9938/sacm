@@ -1,9 +1,9 @@
 # Simple App Config Manager (sacm)
 
 ## Introduction
-This is a very simple management tool for managing the local configurations of thirdparty docker containers like Unbound or FreshRSS.  It is written entirely in bash (as of this writing).  This is both for portability reasons and for the fact that git and Docker are easiest (for me) to work with as command line tools.
+Simple App Config Manager (**sacm**) is a very simple management tool for tracking the local configurations of thirdparty docker containers like Unbound or FreshRSS.  It is intended to be used with the various Linux distributions.  As of this writing, it is written entirely in `bash`, both for portability reasons and for the fact that `git` and `Docker` are easiest (for me) to work with as command line tools.
 
-This is a work in progress and I might make major changes.   And yes, there are probably ten or a hundred different ways to automatically manage configurations such as these but I felt Chef, Salt, Puppet, Ansible, and the like have many dependencies and by focusing on bash and git, it would be easy to get this working and debugged.
+This is a work in progress and I might make major changes.   And yes, there are probably ten or a hundred different ways to automatically manage configurations such as these but I felt Chef, Salt, Puppet, Ansible, and the many open source projects have many dependencies and different respective target use cases.  This is focuses on my current use case and on use the most generally available tools to get it working (e.g. git and bash).
 
 ## Features
 - Centralized management of third-party Linux Docker images
@@ -50,3 +50,7 @@ The git server contains the server node and app repos.  Git servers are currentl
 - Support for rootless Docker
 - Support for podman
 - Repos to allow each client to feedback logs to server (when centralized monitoring is not in place)
+
+## More
+[Client Installation](client-installation.md)
+
