@@ -5,8 +5,8 @@ usage() {
     $0 [-s|--scripts-check <type>] \\
            <config-update-comment> [new-config-version]
 
-    Run this command from within the node or app config repo (e.g. \$HOME/localgit/app-unbound-pi5 or
-    \$HOME/localgit/node-pi5)
+    Run this command from within the client or app config repo (e.g. \$HOME/localgit/app-unbound-pi5 or
+    \$HOME/localgit/client-pi5)
 
     OPTIONS
     <config-update-comment>  The comment (in quotes) to be included in the commit 
@@ -16,7 +16,7 @@ usage() {
 			     of 1.0 will be applied.
     -s|--scripts-check <type>
 			     The scripts-check will, depending on the type provided, 
-			     will compare the version of the app or node repo's current copy version
+			     will compare the version of the app or client repo's current copy version
 			     of the script dirs to the version of the sources.
 
 	       		     <type> can be "update" (default), "check", "prompt", or "skip"
@@ -46,7 +46,7 @@ increment_version_number() {
 	new_version=${current_version}
     else
 	new_version=$(echo ${current_version} + "0.01" | bc -l)
-    fi
+     fi
 
     echo ${new_version}
 }
@@ -126,16 +126,16 @@ perform_script_dir_check() {
     
 }
 
-readonly NODE_REPO_PREFIX="node-"
+readonly CLIENT_REPO_PREFIX="client-"
 readonly APP_REPO_PREFIX="app-"
+readonly REPO_TYPE_CLIENT="client"
 readonly REPO_TYPE_APP="app"
-readonly REPO_TYPE_NODE="node"
 REPO_DIR=$(git rev-parse --show-toplevel)
 REPO_NAME=$(basename ${REPO_DIR})
 BASE_DIR="$(realpath $(get_script_dir)/..)"
 
-APP_REPO_SCRIPT_DIRS="app_repo_scripts shared_scripts"
-NODE_REPO_SCRIPT_DIRS="node_mgmt_scripts shared_scripts"
+APP_REPO_SCRIPT_DIRS="app_ctrl_scripts shared_scripts"
+CLIENT_REPO_SCRIPT_DIRS="client_side_scripts shared_scripts"
 	
 CRS_SRC_DIR="${BASE_DIR}/common_repo_scripts"
 CRS_DIR="common_repo_scripts"
@@ -146,12 +146,17 @@ CONFIG_PRIOR_VERSION_FILE="CONFIG_PRIOR_VERSION"
 VERSION_FILE="VERSION"
 PRIOR_VERSION_FILE="PRIOR_VERSION"
 
+if [ $# -lt 1 ]; then
+   usage
+   exit 1
+fi
+
 case ${REPO_NAME} in
     ${APP_REPO_PREFIX}*)
  	REPO_TYPE="app"
 	;;
-    ${NODE_REPO_PREFIX}*)
-	REPO_TYPE="node"
+    ${CLIENT_REPO_PREFIX}*)
+	REPO_TYPE="client"
 	;;
     *)
 	echo "Unknown prefix for repo ${REPO_NAME}.  Exiting..." >&2
@@ -162,10 +167,9 @@ esac
 cd ${REPO_DIR}
 
 
-#################
+###########################################################
 # Source Script CFG file
 SCRIPT_CFG_FILE="${BASE_DIR}/cfg/$(basename ${0} .sh).cfg"
-##################
 
 if [ ! -f ${SCRIPT_CFG_FILE} ]; then
     >&2 echo Script cfg file, \"${SCRIPT_CFG_FILE}\", not found.  Exiting.
@@ -180,25 +184,8 @@ else
 	exit 1
     fi
 fi
+###########################################################
 
-if [ $# -lt 1 ]; then
-   usage
-   exit 1
-fi
-
-# config_repo_name=${1}
-
-# if [ ${config_repo_name} = "." ]; then
-#     config_repo_name=$(basename $(realpath $(pwd)))
-# fi
-
-# repo_dir=${CONFIG_REPO_DIR}/${config_repo_name}
-# if cd ${repo_dir}; then
-#     echo Changed dir to ${repo_dir} "("$(pwd)")"
-# else
-#     echo Could not change dir to git config repo ${repo_dir}.  Exiting....
-#     exit -1
-# fi
 scripts_check_type="update"
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -236,8 +223,8 @@ case ${REPO_TYPE} in
 	    perform_script_dir_check ${scripts_check_type} ${script_dir}
 	done
 	;;
-    ${REPO_TYPE_NODE})
-	for script_dir in ${NODE_REPO_SCRIPT_DIRS}; do 
+    ${REPO_TYPE_CLIENT})
+	for script_dir in ${CLIENT_REPO_SCRIPT_DIRS}; do 
 	    perform_script_dir_check ${scripts_check_type} ${script_dir}
 	done
 	;;

@@ -28,7 +28,7 @@ COMMON_SH="$(bootstrap_get_script_dir)/../shared_scripts/common.sh"
 if [ -f ${COMMON_SH} ]; then
     . ${COMMON_SH}
 else
-    echo "Cannot load common.sh. Exiting..." >&2
+    echo "Cannot load common.sh from ${COMMON_SH}. Exiting..." >&2
     exit 1
 fi
 
@@ -354,16 +354,20 @@ TP_SCRIPTS="${BASE_DIR}/thirdparty/scripts"
 
 # remote 
 REMOTE_GIT_BASE_URL="git://wanda.local"
+# local
+LOCAL_REPO_BASEDIR="${HOME}/git-config-repos"
+CLIENT_REPO_NAME="client-${USER}-${HOSTNAME}"
+
 HELP_REGEX="^-h.*$|^--h.*$"
-# need a node repo dir
+# need a client repo dir
 GIT_STATUS_BRANCH_BEHIND="Your branch is behind"
 GIT_STATUS_BRANCH_UP_TO_DATE="Your branch is up to date"
-LOCAL_REPO_BASEDIR="${HOME}/git-config-repos"
+
 APPS_FILE="APPS"
 APPS_LAST_PROCESSED_FILE=${APPS_FILE}"_LAST_PROCESSED"
 TMP_DIR="/tmp/$(basename $0 ".sh")${$}"
-NODE_REPO_NAME="node-${HOSTNAME}"
-NODE_CONFIG_REPO_DIR=${LOCAL_REPO_BASEDIR}/${NODE_REPO_NAME}
+
+CLIENT_CONFIG_REPO_DIR=${LOCAL_REPO_BASEDIR}/${CLIENT_REPO_NAME}
 DIFF_IGNORED_MOVED="${TP_SCRIPTS}/diff-ignore-moved-lines.sh"
 DIFF_SORTER="${SHARED_SCRIPTS_DIR}/diff_sorter.sh"
 DIFF_SORTER_OUTFILES_PREFIX="${TMP_DIR}/out"
@@ -371,7 +375,7 @@ APPS_DEL_FILE=${DIFF_SORTER_OUTFILES_PREFIX}"_del.txt"
 APPS_MOV_FILE=${DIFF_SORTER_OUTFILES_PREFIX}"_mov.txt"
 APPS_UNC_FILE=${DIFF_SORTER_OUTFILES_PREFIX}"_unc.txt"
 APPS_ADD_FILE=${DIFF_SORTER_OUTFILES_PREFIX}"_add.txt"
-DEFAULT_LOG_FILE_PREFIX="/var/tmp/$(basename $0 .sh)-${NODE_REPO_NAME}"
+DEFAULT_LOG_FILE_PREFIX="/var/tmp/$(basename $0 .sh)-${CLIENT_REPO_NAME}"
 DEFAULT_LOG_FILE_PATH="$(get_dated_log_filename ${DEFAULT_LOG_FILE_PREFIX})"
 
 case $# in
@@ -424,23 +428,23 @@ fi
 #
 # First process the host config repo and changes 
 # 
-if [ ! -d ${NODE_CONFIG_REPO_DIR} ]; then
-    log_info "Will run git clone of node repo ${NODE_REPO_NAME}"
-    log_command "git clone ${REMOTE_GIT_BASE_URL}/${NODE_REPO_NAME}" INFO
+if [ ! -d ${CLIENT_CONFIG_REPO_DIR} ]; then
+    log_info "Will run git clone of client repo ${CLIENT_REPO_NAME}"
+    log_command "git clone ${REMOTE_GIT_BASE_URL}/${CLIENT_REPO_NAME}" INFO
     if [ $? -eq  0 ]; then
-	log_info "git clone of node repo ${NODE_REPO_NAME} succeeded."
+	log_info "git clone of client repo ${CLIENT_REPO_NAME} succeeded."
     else
-	log_error "git clone of node repo ${NODE_REPO_NAME} FAILED. Exiting..."
+	log_error "git clone of client repo ${CLIENT_REPO_NAME} FAILED. Exiting..."
 	exit 1
     fi
-    log_info "git clone of repo ${NODE_REPO_NAME} succeeded."
+    log_info "git clone of repo ${CLIENT_REPO_NAME} succeeded."
 else
-    cd ${NODE_CONFIG_REPO_DIR}
+    cd ${CLIENT_CONFIG_REPO_DIR}
     scriptLastModTimeOrig=$(stat -c %Y $0)
-    log_info "Will run git pull for node repo ${NODE_REPO_NAME}"
+    log_info "Will run git pull for client repo ${CLIENT_REPO_NAME}"
     log_command "git pull" INFO
     if [ $? -eq 0 ]; then
-	log_info "git pull for node repo ${NODE_REPO_NAME} succeeded."
+	log_info "git pull for client repo ${CLIENT_REPO_NAME} succeeded."
 	#
 	# See if _this_ script was updated.  If yes, restart this script.
 	#
@@ -459,7 +463,7 @@ else
 	fi
 	
     else
-	log_error "git pull failed for node repo ${NODE_REPO_NAME}. Exiting..."
+	log_error "git pull failed for client repo ${CLIENT_REPO_NAME}. Exiting..."
 	exit 1
     fi
 fi
@@ -467,7 +471,7 @@ fi
 #
 # process APPS file into apps-to-stop file and apps-to-clone-update-start file
 #
-if cd ${NODE_CONFIG_REPO_DIR}; then
+if cd ${CLIENT_CONFIG_REPO_DIR}; then
     # APPLS_LAST_PROCESSED_FILE may not exist -- diff_sort handles this situation
     # and will consider an empty file instead.
     command="${DIFF_SORTER} --outfiles-prefix ${DIFF_SORTER_OUTFILES_PREFIX} "
@@ -476,7 +480,7 @@ if cd ${NODE_CONFIG_REPO_DIR}; then
     
     log_command  "${command}" INFO
 else
-    log_error "Could not change dir to NODE_CONFIG_REPO_DIR \"${NODE_CONFIG_REPO_DIR}\".  " \
+    log_error "Could not change dir to CLIENT_CONFIG_REPO_DIR \"${CLIENT_CONFIG_REPO_DIR}\".  " \
 	      "Exiting..."
     exit 1
 fi
@@ -491,7 +495,7 @@ process_apps_to_validate
 #  Success 
 #
 # copy APPS file to APPS_LAST_PROCESSED
-cd ${NODE_CONFIG_REPO_DIR}
+cd ${CLIENT_CONFIG_REPO_DIR}
 cp -p ${APPS_FILE} ${APPS_LAST_PROCESSED_FILE}
 
 

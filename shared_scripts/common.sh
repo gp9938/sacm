@@ -34,6 +34,10 @@ get_real_script_dir(){
     echo $(dirname $(realpath ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}))
 }
 
+get_current_script_dir(){
+    echo $(dirname $(realpath ${BASH_SOURCE[0]}))
+}
+
 get_base_dir() {
     echo $(realpath "$(get_script_dir)/..")
 }
@@ -386,7 +390,7 @@ generic_load_init_cfg() {
 
 FUNC_AFTER_COMMON=$(declare -F|awk '{print $3}' | sort -u)
 
-ENUM_SH="$(get_real_script_dir)/../shared_scripts/enum.sh"
+ENUM_SH="$(get_current_script_dir)/../shared_scripts/enum.sh"
 if [ -f ${ENUM_SH} ]; then
     . ${ENUM_SH}
 else
@@ -445,3 +449,4 @@ test_common() {
     if log_warn "test message"; then echo PASS; else echo FAIL; fi
     echo status is $?
 }
+
