@@ -36,6 +36,19 @@ else
 	    "Exiting."
 	exit 1
     fi    
+    if [ -z ${CLIENT_REPO_NAME} ]; then
+	>&2 echo "Script cfg file, \"${CLIENT_SCRIPT_DEFAULTS_FILE}\", did not contain a" \
+	    "declaration for CLIENT_REPO_NAME, the top-level dir of all config repos." \
+	    "Exiting."
+	exit 1
+    fi    
+    if [ -z ${CRONTAB_TIMEDATE_FIELD} ]; then
+	>&2 echo "Script cfg file, \"${CLIENT_SCRIPT_DEFAULTS_FILE}\", did not contain a" \
+	    "declaration for CRONTAB_TIMEDATE_FIELD, the top-level dir of all config repos." \
+
+	    "Exiting."
+	exit 1
+    fi    
 fi
 ##########################################################################################
 
@@ -50,6 +63,7 @@ fi
 
 
 REMOTE_REPO_URL="${REMOTE_GIT_BASE_URL}/${CLIENT_REPO_NAME}"
+CRONTAB_COMMENT="# automatically added for sacm client_daemon -- do not modify line"
 log_info "Checking for availability of repo ${REMOTE_REPO_URL}"
 log_command "git ls-remote -q ${REMOTE_REPO_URL}" INFO
 if [ $? -ne 0 ]; then
@@ -82,13 +96,16 @@ else
     exit 1
 fi
 
+CLIENT_DAEMON_PATH="${LOCAL_REPO_BASEDIR}/${CLIENT_REPO_NAME}/client_side_scripts/client_daemon.sh"
+CRONTAB_ENTRY="${CRONTAB_TIMEDATE_FIELD} ${CLIENT_DAEMON_PATH}"
+
 log_info "Will add sacm daemon crontab entry"
-log_command "$(bootstrap_get_script_dir)/install_cron_entry.sh" INFO
+log_command "$(bootstrap_get_script_dir)/install_cron_entry.sh \"${CRONTAB_ENTRY}\" \"${CRONTAB_COMMENT}\"" INFO
 if [ $? != 0 ]; then
     log_error "Failed to install cron entry for client_daemon.sh.  Exiting..."
     exit 1
 fi
 
 log_info "Will start sacm daemon"
-"${LOCAL_REPO_BASEDIR}/${CLIENT_REPO_NAME}/client_side_scripts/client_daemon.sh" --background
+"${CLIENT_DAEMON_PATH}" --action start --background
 log_info "Started sacm daemon. Done."

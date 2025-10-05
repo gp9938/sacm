@@ -139,7 +139,7 @@ if [[ ${background} = "y" ]]; then
     if [ -f "${STDERR_OUTFILE}" ]; then
 	mv "${STDERR_OUTFILE}" "${STDERR_OUTFILE}.old"
     fi
-    nohup "$0 --action start"  > "${STDERR_OUTFILE}" 2>&1 &
+    nohup "$0" "--action" "start"  > "${STDERR_OUTFILE}" 2>&1 &
     exit $?
 else
     tty > /dev/null
