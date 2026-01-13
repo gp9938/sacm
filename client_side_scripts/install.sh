@@ -97,7 +97,8 @@ else
 fi
 
 CLIENT_DAEMON_PATH="${LOCAL_REPO_BASEDIR}/${CLIENT_REPO_NAME}/client_side_scripts/client_daemon.sh"
-CRONTAB_ENTRY="${CRONTAB_TIMEDATE_FIELD} ${CLIENT_DAEMON_PATH}"
+CLIENT_DAEMON_ARGS="-a start -b" # start and background
+CRONTAB_ENTRY="${CRONTAB_TIMEDATE_FIELD} ${CLIENT_DAEMON_PATH} ${CLIENT_DAEMON_ARGS}"
 
 log_info "Will add sacm daemon crontab entry"
 log_command "$(bootstrap_get_script_dir)/install_cron_entry.sh \"${CRONTAB_ENTRY}\" \"${CRONTAB_COMMENT}\"" INFO
