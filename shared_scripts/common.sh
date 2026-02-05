@@ -25,6 +25,13 @@ get_script_dir() {
 }
 
 # Public
+# 
+# Return the script name
+get_script_name() {
+    echo ${BASH_SOURCE[${#BASH_SOURCE[@]} - 1]}
+}
+
+# Public
 #
 # Return s the directory from which a script was run.  If the
 # script is reached via a symlink, the directory of the script
@@ -439,6 +446,8 @@ test_common() {
     if get_real_script_dir; then echo PASS; else echo FAIL; fi
     echo -n "get_script_dir: "
     if get_script_dir; then echo PASS; else echo FAIL; fi
+    echo -n "get_script_name: "
+    if get_script_name; then echo PASS; else echo FAIL; fi
     echo -n "log: "
     if log "test message"; then echo PASS; else echo FAIL; fi
     echo -n "log_error: "
