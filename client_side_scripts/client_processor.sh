@@ -52,6 +52,7 @@ cleanup() {
 
 
 process_apps_to_stop() {
+    log_info "Processing apps to stop..."
     if [ $(wc -l < ${APPS_DEL_FILE}) -gt 0 ]; then
 	#
 	# process app_del_file
@@ -94,6 +95,9 @@ process_apps_to_clone_update_start() {
     local repo_version_number
     local repo_dir
     local repo_url
+
+    log_info "Processing apps to update/start..."
+
     if [ $(wc -l < ${APPS_ADD_FILE}) -gt 0 ]; then
 	#
 	# process apps-to-clone-update-or-start
@@ -132,6 +136,8 @@ process_apps_to_validate() {
     local repo_dir
     local repo_url
 
+    log_info "Processing apps to validate..."
+    
     unchanged_or_moved_apps=$(cat ${APPS_MOV_FILE} ${APPS_UNC_FILE})
     
     if [ $(wc -l <<<${unchanged_or_moved_apps}) -gt 0 ]; then
