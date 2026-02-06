@@ -2,7 +2,7 @@
 #
 # get the script ignoring symlinks
 # 
-boostrap_get_real_script_dir(){
+bootstrap_get_real_script_dir(){
     echo $(dirname $(realpath $0))
 }
 
