@@ -362,7 +362,7 @@ TP_SCRIPTS="${BASE_DIR}/thirdparty/scripts"
 REMOTE_GIT_BASE_URL="git://wanda.local"
 # local
 LOCAL_REPO_BASEDIR="${HOME}/git-config-repos"
-CLIENT_REPO_NAME="client-${USER}-${HOSTNAME}"
+CLIENT_REPO_NAME="client-$(whoami)-${HOSTNAME}"
 
 HELP_REGEX="^-h.*$|^--h.*$"
 # need a client repo dir
